@@ -435,7 +435,6 @@ function processFiles(id, name, type) {
                 updateProgress(markerProgressBar, markerProgressText, 100);
                 resolve();
             }).catch(error => {
-                // 删除重复的代码块
                 console.error('处理标记图像失败:', error);
                 alert('处理标记图像失败: ' + error.message);
                 reject(error);
@@ -519,8 +518,23 @@ function processFiles(id, name, type) {
 
 // 更新进度条
 function updateProgress(progressBar, progressText, progress) {
-    progressBar.style.width = `${progress}%`;
-    progressText.textContent = `${Math.round(progress)}%`;
+    // 确保进度值在0-100之间
+    const safeProgress = Math.max(0, Math.min(100, progress));
+    
+    // 更新进度条宽度
+    progressBar.style.width = `${safeProgress}%`;
+    
+    // 更新进度文本
+    progressText.textContent = `${Math.round(safeProgress)}%`;
+    
+    // 根据进度改变颜色
+    if (safeProgress < 30) {
+        progressBar.style.backgroundColor = '#ff9800';
+    } else if (safeProgress < 70) {
+        progressBar.style.backgroundColor = '#2196f3';
+    } else {
+        progressBar.style.backgroundColor = '#4caf50';
+    }
 }
 
 // 读取文件为 Data URL
@@ -531,27 +545,43 @@ function readFileAsDataURL(file, progressCallback) {
         // 开始读取时显示0%进度
         progressCallback(0);
         
+        // 模拟进度更新
+        let simulatedProgress = 0;
+        const progressInterval = setInterval(() => {
+            if (simulatedProgress < 90) {
+                simulatedProgress += Math.random() * 10;
+                progressCallback(Math.min(simulatedProgress, 90));
+            } else {
+                clearInterval(progressInterval);
+            }
+        }, 200);
+        
         reader.onload = function(e) {
+            // 清除模拟进度定时器
+            clearInterval(progressInterval);
             // 完成时回调100%进度
             progressCallback(100);
             resolve(e.target.result);
         };
         
         reader.onerror = function(e) {
+            clearInterval(progressInterval);
             reject(new Error('文件读取失败'));
         };
         
         reader.onprogress = function(e) {
             if (e.lengthComputable) {
                 const progress = (e.loaded / e.total) * 100;
+                // 实际进度优先于模拟进度
+                clearInterval(progressInterval);
                 progressCallback(progress);
             }
         };
         
-        // 添加延迟，确保进度条动画可见
+        // 添加短暂延迟，确保UI更新
         setTimeout(() => {
             reader.readAsDataURL(file);
-        }, 100);
+        }, 50);
     });
 }
 
