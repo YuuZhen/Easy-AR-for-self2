@@ -1,3 +1,369 @@
+// 全局变量
+let contents = [];
+
+// DOM 元素
+let contentList, contentModal, qrModal, contentForm, modalTitle, contentId, contentName, contentType;
+let markerImage, contentFile, markerPreview, contentPreview, addContentBtn, closeButtons, qrCode, arUrl, copyUrlBtn;
+let markerDropZone, contentDropZone, markerProgressContainer, contentProgressContainer;
+let markerProgressBar, contentProgressBar, markerProgressText, contentProgressText;
+
+// 初始化
+document.addEventListener('DOMContentLoaded', init);
+
+function init() {
+    // 获取DOM元素
+    initDOMElements();
+    
+    // 预加载QRCode库
+    preloadQRCodeLibrary();
+    
+    // 从本地存储加载内容
+    loadContents();
+    
+    // 渲染内容列表
+    renderContentList();
+    
+    // 添加事件监听器
+    addEventListeners();
+    
+    // 初始化拖拽上传
+    initDragAndDrop();
+}
+
+// 预加载QRCode库
+function preloadQRCodeLibrary() {
+    if (typeof QRCode === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js';
+        document.head.appendChild(script);
+        console.log('QRCode库预加载中...');
+    }
+}
+
+// 初始化DOM元素
+function initDOMElements() {
+    contentList = document.getElementById('contentList');
+    contentModal = document.getElementById('contentModal');
+    qrModal = document.getElementById('qrModal');
+    contentForm = document.getElementById('contentForm');
+    modalTitle = document.getElementById('modalTitle');
+    contentId = document.getElementById('contentId');
+    contentName = document.getElementById('contentName');
+    contentType = document.getElementById('contentType');
+    markerImage = document.getElementById('markerImage');
+    contentFile = document.getElementById('contentFile');
+    markerPreview = document.getElementById('markerPreview');
+    contentPreview = document.getElementById('contentPreview');
+    addContentBtn = document.getElementById('addContentBtn');
+    
+    // 检查addContentBtn是否正确获取
+    if (!addContentBtn) {
+        console.error('无法找到添加内容按钮，尝试使用类选择器');
+        addContentBtn = document.querySelector('.add-content-btn');
+    }
+    
+    closeButtons = document.querySelectorAll('.close');
+    qrCode = document.getElementById('qrCode');
+    arUrl = document.getElementById('arUrl');
+    copyUrlBtn = document.getElementById('copyUrlBtn');
+    
+    // 拖拽上传相关元素
+    markerDropZone = document.getElementById('markerDropZone');
+    contentDropZone = document.getElementById('contentDropZone');
+    markerProgressContainer = document.getElementById('markerProgressContainer');
+    contentProgressContainer = document.getElementById('contentProgressContainer');
+    markerProgressBar = document.getElementById('markerProgressBar');
+    contentProgressBar = document.getElementById('contentProgressBar');
+    markerProgressText = document.getElementById('markerProgressText');
+    contentProgressText = document.getElementById('contentProgressText');
+    
+    // 初始化隐藏进度条
+    if (markerProgressContainer) markerProgressContainer.style.display = 'none';
+    if (contentProgressContainer) contentProgressContainer.style.display = 'none';
+}
+
+// 加载内容
+function loadContents() {
+    try {
+        const storedContents = localStorage.getItem('arContents');
+        if (storedContents) {
+            contents = JSON.parse(storedContents);
+            console.log(`已从本地存储加载 ${contents.length} 个内容项`);
+        }
+    } catch (error) {
+        console.error('加载内容失败:', error);
+        contents = [];
+        // 尝试恢复损坏的数据
+        localStorage.removeItem('arContents');
+    }
+}
+
+// 保存内容到本地存储
+function saveContents() {
+    try {
+        localStorage.setItem('arContents', JSON.stringify(contents));
+        console.log(`已保存 ${contents.length} 个内容项到本地存储`);
+        return true;
+    } catch (error) {
+        console.error('保存内容失败:', error);
+        alert('保存内容失败，可能是由于存储空间不足。请尝试删除一些旧内容。');
+        return false;
+    }
+}
+
+// 渲染内容列表
+function renderContentList() {
+    contentList.innerHTML = '';
+    
+    if (contents.length === 0) {
+        contentList.innerHTML = `
+            <div class="empty-state">
+                <i class="ri-file-list-3-line"></i>
+                <h3>暂无内容</h3>
+                <p>点击"添加新内容"按钮开始创建AR内容</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 按更新时间排序，最新的在前面
+    const sortedContents = [...contents].sort((a, b) => 
+        new Date(b.updatedAt) - new Date(a.updatedAt)
+    );
+    
+    sortedContents.forEach(content => {
+        const card = document.createElement('div');
+        card.className = 'content-card';
+        
+        card.innerHTML = `
+            <img src="${content.markerImage}" alt="${content.name}" class="card-image">
+            <div class="card-content">
+                <h3 class="card-title">${content.name}</h3>
+                <div class="card-info">
+                    <p>类型: ${getContentTypeName(content.type)}</p>
+                    <p>创建时间: ${new Date(content.createdAt).toLocaleString()}</p>
+                </div>
+                <div class="card-actions">
+                    <button class="btn btn-secondary view-qr" data-id="${content.id}"><i class="ri-qr-code-line"></i> 查看二维码</button>
+                    <button class="btn edit-content" data-id="${content.id}"><i class="ri-edit-line"></i> 编辑</button>
+                    <button class="btn btn-danger delete-content" data-id="${content.id}"><i class="ri-delete-bin-line"></i> 删除</button>
+                </div>
+            </div>
+        `;
+        
+        contentList.appendChild(card);
+    });
+}
+// 获取内容类型名称
+function getContentTypeName(type) {
+    switch (type) {
+        case 'image': return '图片';
+        case 'video': return '视频';
+        case '3d': return '3D 模型';
+        default: return '未知';
+    }
+}
+
+// 添加事件监听器
+function addEventListeners() {
+    // 添加内容按钮
+    console.log('添加内容按钮元素:', addContentBtn);
+    
+    if (addContentBtn) {
+        console.log('为添加内容按钮添加点击事件');
+        // 移除重复的事件监听器，只保留一个
+        addContentBtn.removeEventListener('click', openAddContentModal);
+        addContentBtn.addEventListener('click', function() {
+            console.log('添加内容按钮被点击');
+            openAddContentModal();
+        });
+    } else {
+        console.error('添加内容按钮未找到，尝试查找其他可能的选择器');
+        // 尝试其他可能的选择器
+        const possibleButtons = document.querySelectorAll('button, .btn, .button');
+        console.log('页面上的所有按钮:', possibleButtons);
+        
+        // 尝试通过文本内容查找
+        const addButton = Array.from(possibleButtons).find(btn => 
+            btn.textContent.includes('添加') || 
+            btn.textContent.includes('新增') || 
+            btn.textContent.includes('新建') ||
+            btn.textContent.includes('Add')
+        );
+        
+        if (addButton) {
+            console.log('找到可能的添加按钮:', addButton);
+            addButton.addEventListener('click', openAddContentModal);
+        }
+    }
+    
+    // 关闭按钮
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            contentModal.style.display = 'none';
+            qrModal.style.display = 'none';
+        });
+    });
+    
+    // 点击模态框外部关闭
+    window.addEventListener('click', (e) => {
+        if (e.target === contentModal) {
+            contentModal.style.display = 'none';
+        }
+        if (e.target === qrModal) {
+            qrModal.style.display = 'none';
+        }
+    });
+    
+    // 表单提交
+    contentForm.addEventListener('submit', handleFormSubmit);
+    
+    // 文件输入变化
+    markerImage.addEventListener('change', handleMarkerImageChange);
+    contentFile.addEventListener('change', handleContentFileChange);
+    
+    // 内容类型变化时更新文件接受类型
+    contentType.addEventListener('change', updateContentFileAcceptType);
+    
+    // 代理事件监听器，用于动态生成的按钮
+    contentList.addEventListener('click', handleContentListClick);
+    
+    // 复制URL按钮
+    copyUrlBtn.addEventListener('click', copyArUrl);
+    
+    // 添加键盘事件，按ESC关闭模态框
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            contentModal.style.display = 'none';
+            qrModal.style.display = 'none';
+        }
+    });
+}
+
+// 更新内容文件接受类型
+function updateContentFileAcceptType() {
+    const type = contentType.value;
+    
+    switch (type) {
+        case 'image':
+            contentFile.setAttribute('accept', 'image/*');
+            break;
+        case 'video':
+            contentFile.setAttribute('accept', 'video/*');
+            break;
+        case '3d':
+            contentFile.setAttribute('accept', '.gltf,.glb');
+            break;
+    }
+}
+
+// 初始化拖拽上传
+function initDragAndDrop() {
+    // 标记图像拖拽区域
+    setupDropZone(markerDropZone, markerImage, handleMarkerImageChange);
+    
+    // 内容文件拖拽区域
+    setupDropZone(contentDropZone, contentFile, handleContentFileChange);
+}
+
+// 设置拖拽区域
+function setupDropZone(dropZone, fileInput, changeHandler) {
+    if (!dropZone) return;
+    
+    // 点击拖拽区域触发文件选择
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // 拖拽事件
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // 拖拽进入和悬停
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('active');
+        });
+    });
+    
+    // 拖拽离开和放下
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('active');
+        });
+    });
+    
+    // 处理文件放下
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            changeHandler({ target: fileInput });
+        }
+    });
+}
+
+// 处理内容列表点击事件
+function handleContentListClick(e) {
+    const target = e.target.closest('button');
+    if (!target) return;
+    
+    const id = target.dataset.id;
+    
+    if (target.classList.contains('view-qr')) {
+        showQRCode(id);
+    } else if (target.classList.contains('edit-content')) {
+        openEditContentModal(id);
+    } else if (target.classList.contains('delete-content')) {
+        deleteContent(id);
+    }
+}
+
+// 打开添加内容模态框
+function openAddContentModal() {
+    console.log('打开添加内容模态框');
+    modalTitle.textContent = '添加新内容';
+    contentId.value = '';
+    contentForm.reset();
+    markerPreview.innerHTML = '';
+    contentPreview.innerHTML = '';
+    updateContentFileAcceptType();
+    contentModal.style.display = 'block';
+}
+
+// 打开编辑内容模态框
+function openEditContentModal(id) {
+    const content = contents.find(item => item.id === id);
+    if (!content) return;
+    
+    modalTitle.textContent = '编辑内容';
+    contentId.value = content.id;
+    contentName.value = content.name;
+    contentType.value = content.type;
+    updateContentFileAcceptType();
+    
+    // 显示预览
+    markerPreview.innerHTML = `<img src="${content.markerImage}" alt="标记图像预览" class="preview-image">`;
+    
+    if (content.type === 'image') {
+        contentPreview.innerHTML = `<img src="${content.contentFile}" alt="内容预览" class="preview-image">`;
+    } else if (content.type === 'video') {
+        contentPreview.innerHTML = `<video src="${content.contentFile}" controls style="max-width: 100%; max-height: 200px;"></video>`;
+    } else if (content.type === '3d') {
+        contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${content.contentFile.split('/').pop()})</div>`;
+    }
+    
+    contentModal.style.display = 'block';
+}
+
 // 处理表单提交
 function handleFormSubmit(e) {
     e.preventDefault();
@@ -38,188 +404,54 @@ function isEditingWithExistingContent() {
     return content && content.contentFile;
 }
 
-// 处理文件
-function processFiles(id, name, type) {
-    const isEditing = contentId.value !== '';
-    let markerImageData = '';
-    let contentFileData = '';
-    
-    // 如果是编辑模式且没有选择新文件，使用现有文件
-    if (isEditing) {
-        const existingContent = contents.find(item => item.id === id);
-        markerImageData = existingContent.markerImage;
-        contentFileData = existingContent.contentFile;
-    }
-    
-    // 添加进度条覆盖层到预览区域
-    addProgressOverlay(markerPreview, 'marker-progress-overlay');
-    addProgressOverlay(contentPreview, 'content-progress-overlay');
-    
-    // 获取新创建的覆盖层进度条元素
-    const markerProgressOverlay = document.getElementById('marker-progress-overlay');
-    const contentProgressOverlay = document.getElementById('content-progress-overlay');
-    
-    // 处理标记图像
-    const processMarkerImage = new Promise((resolve, reject) => {
-        if (markerImage.files[0]) {
-            readFileAsDataURL(markerImage.files[0], (progress) => {
-                updateProgressOverlay(markerProgressOverlay, progress);
-            }).then(data => {
-                markerImageData = data;
-                // 完成后设置为100%
-                updateProgressOverlay(markerProgressOverlay, 100);
-                // 短暂延迟后隐藏覆盖层
-                setTimeout(() => {
-                    if (markerProgressOverlay) markerProgressOverlay.style.opacity = '0';
-                }, 500);
-                resolve();
-            }).catch(error => {
-                console.error('处理标记图像失败:', error);
-                alert('处理标记图像失败: ' + error.message);
-                reject(error);
-            });
-        } else {
-            // 如果没有新文件，直接设置为100%并隐藏
-            updateProgressOverlay(markerProgressOverlay, 100);
-            setTimeout(() => {
-                if (markerProgressOverlay) markerProgressOverlay.style.opacity = '0';
-            }, 500);
-            resolve();
-        }
-    });
-    
-    // 处理内容文件
-    const processContentFile = new Promise((resolve, reject) => {
-        if (contentFile.files[0]) {
-            readFileAsDataURL(contentFile.files[0], (progress) => {
-                updateProgressOverlay(contentProgressOverlay, progress);
-            }).then(data => {
-                contentFileData = data;
-                // 完成后设置为100%
-                updateProgressOverlay(contentProgressOverlay, 100);
-                // 短暂延迟后隐藏覆盖层
-                setTimeout(() => {
-                    if (contentProgressOverlay) contentProgressOverlay.style.opacity = '0';
-                }, 500);
-                resolve();
-            }).catch(error => {
-                console.error('处理内容文件失败:', error);
-                alert('处理内容文件失败: ' + error.message);
-                reject(error);
-            });
-        } else {
-            // 如果没有新文件，直接设置为100%并隐藏
-            updateProgressOverlay(contentProgressOverlay, 100);
-            setTimeout(() => {
-                if (contentProgressOverlay) contentProgressOverlay.style.opacity = '0';
-            }, 500);
-            resolve();
-        }
-    });
-    
-    // 等待所有文件处理完成
-    Promise.all([processMarkerImage, processContentFile])
-        .then(() => {
-            // 创建或更新内容
-            const content = {
-                id,
-                name,
-                type,
-                markerImage: markerImageData,
-                contentFile: contentFileData,
-                createdAt: isEditing ? contents.find(item => item.id === id).createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            // 更新内容列表
-            if (isEditing) {
-                const index = contents.findIndex(item => item.id === id);
-                contents[index] = content;
-            } else {
-                contents.push(content);
-            }
-            
-            // 保存到本地存储
-            saveContents();
-            
-            // 重新渲染内容列表
-            renderContentList();
-            
-            // 关闭模态框
-            contentModal.style.display = 'none';
-            
-            // 移除进度条覆盖层
-            removeProgressOverlay('marker-progress-overlay');
-            removeProgressOverlay('content-progress-overlay');
-            
-            // 显示二维码
-            showQRCode(content.id);
-        })
-        .catch(error => {
-            console.error('处理文件失败:', error);
-            // 移除进度条覆盖层
-            removeProgressOverlay('marker-progress-overlay');
-            removeProgressOverlay('content-progress-overlay');
-        });
+// 生成唯一ID
+function generateId() {
+    return 'ar_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-// 读取文件为 Data URL
-function readFileAsDataURL(file, progressCallback) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        // 开始读取时显示0%进度
-        progressCallback(0);
-        
-        // 模拟进度更新
-        let simulatedProgress = 0;
-        const progressInterval = setInterval(() => {
-            if (simulatedProgress < 90) {
-                simulatedProgress += Math.random() * 5 + 2; // 更平滑的增长
-                progressCallback(Math.min(simulatedProgress, 90));
-            } else {
-                clearInterval(progressInterval);
-            }
-        }, 100); // 更频繁的更新
-        
-        reader.onload = function(e) {
-            // 清除模拟进度定时器
-            clearInterval(progressInterval);
-            // 完成时回调100%进度
-            progressCallback(100);
-            resolve(e.target.result);
-        };
-        
-        reader.onerror = function(e) {
-            clearInterval(progressInterval);
-            reject(new Error('文件读取失败'));
-        };
-        
-        reader.onprogress = function(e) {
-            if (e.lengthComputable) {
-                const progress = (e.loaded / e.total) * 100;
-                // 实际进度优先于模拟进度
-                clearInterval(progressInterval);
-                progressCallback(progress);
+// 复制AR URL
+function copyArUrl() {
+    const urlText = arUrl.textContent;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(urlText)
+            .then(() => {
+                // 显示复制成功提示
+                const originalText = copyUrlBtn.textContent;
+                copyUrlBtn.textContent = '已复制!';
+                copyUrlBtn.classList.add('copied');
                 
-                // 如果实际进度小于90%，继续模拟剩余进度
-                if (progress < 90) {
-                    simulatedProgress = progress;
-                    const newProgressInterval = setInterval(() => {
-                        if (simulatedProgress < 90) {
-                            simulatedProgress += Math.random() * 3 + 1;
-                            progressCallback(Math.min(simulatedProgress, 90));
-                        } else {
-                            clearInterval(newProgressInterval);
-                        }
-                    }, 100);
-                }
-            }
-        };
+                setTimeout(() => {
+                    copyUrlBtn.textContent = originalText;
+                    copyUrlBtn.classList.remove('copied');
+                }, 2000);
+            })
+            .catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制URL');
+            });
+    } else {
+        // 回退方法
+        const textArea = document.createElement('textarea');
+        textArea.value = urlText;
+        document.body.appendChild(textArea);
+        textArea.select();
         
-        // 添加短暂延迟，确保UI更新
-        setTimeout(() => {
-            reader.readAsDataURL(file);
-        }, 50);
-    });
+        try {
+            document.execCommand('copy');
+            const originalText = copyUrlBtn.textContent;
+            copyUrlBtn.textContent = '已复制!';
+            copyUrlBtn.classList.add('copied');
+            
+            setTimeout(() => {
+                copyUrlBtn.textContent = originalText;
+                copyUrlBtn.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制URL');
+        }
+        
+        document.body.removeChild(textArea);
+    }
 }
