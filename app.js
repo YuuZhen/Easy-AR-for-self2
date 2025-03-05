@@ -396,4 +396,320 @@ function processFiles(id, name, type) {
                 // 完成后设置为100%
                 updateProgress(markerProgressBar, markerProgressText, 100);
                 resolve();
+            }).catch(error => {                updateProgress(markerProgressBar, markerProgressText, 100);
+                resolve();
             }).catch(error => {
+                console.error('处理标记图像失败:', error);
+                alert('处理标记图像失败: ' + error.message);
+                reject(error);
+            });
+        } else {
+            // 如果没有新文件，直接设置为100%
+            updateProgress(markerProgressBar, markerProgressText, 100);
+            resolve();
+        }
+    });
+    
+    // 处理内容文件
+    const processContentFile = new Promise((resolve, reject) => {
+        if (contentFile.files[0]) {
+            readFileAsDataURL(contentFile.files[0], (progress) => {
+                updateProgress(contentProgressBar, contentProgressText, progress);
+            }).then(data => {
+                contentFileData = data;
+                // 完成后设置为100%
+                updateProgress(contentProgressBar, contentProgressText, 100);
+                resolve();
+            }).catch(error => {
+                console.error('处理内容文件失败:', error);
+                alert('处理内容文件失败: ' + error.message);
+                reject(error);
+            });
+        } else {
+            // 如果没有新文件，直接设置为100%
+            updateProgress(contentProgressBar, contentProgressText, 100);
+            resolve();
+        }
+    });
+    
+    // 等待所有文件处理完成
+    Promise.all([processMarkerImage, processContentFile])
+        .then(() => {
+            // 创建或更新内容
+            const content = {
+                id,
+                name,
+                type,
+                markerImage: markerImageData,
+                contentFile: contentFileData,
+                createdAt: isEditing ? contents.find(item => item.id === id).createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            // 更新内容列表
+            if (isEditing) {
+                const index = contents.findIndex(item => item.id === id);
+                contents[index] = content;
+            } else {
+                contents.push(content);
+            }
+            
+            // 保存到本地存储
+            saveContents();
+            
+            // 重新渲染内容列表
+            renderContentList();
+            
+            // 关闭模态框
+            contentModal.style.display = 'none';
+            
+            // 隐藏进度条
+            setTimeout(() => {
+                markerProgressContainer.style.display = 'none';
+                contentProgressContainer.style.display = 'none';
+            }, 1000);
+            
+            // 显示二维码
+            showQRCode(content.id);
+        })
+        .catch(error => {
+            console.error('处理文件失败:', error);
+            // 隐藏进度条
+            markerProgressContainer.style.display = 'none';
+            contentProgressContainer.style.display = 'none';
+        });
+}
+
+// 更新进度条
+function updateProgress(progressBar, progressText, progress) {
+    progressBar.style.width = `${progress}%`;
+    progressText.textContent = `${Math.round(progress)}%`;
+}
+
+// 读取文件为 Data URL
+function readFileAsDataURL(file, progressCallback) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            // 完成时回调100%进度
+            progressCallback(100);
+            resolve(e.target.result);
+        };
+        
+        reader.onerror = function(e) {
+            reject(new Error('文件读取失败'));
+        };
+        
+        reader.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const progress = (e.loaded / e.total) * 100;
+                progressCallback(progress);
+            }
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// 处理标记图像变化
+function handleMarkerImageChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+        alert('请选择图像文件作为标记图像');
+        e.target.value = '';
+        return;
+    }
+    
+    // 显示预览
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        markerPreview.innerHTML = `<img src="${e.target.result}" alt="标记图像预览" class="preview-image">`;
+    };
+    reader.readAsDataURL(file);
+}
+
+// 处理内容文件变化
+function handleContentFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const type = contentType.value;
+    
+    // 检查文件类型
+    if (type === 'image' && !file.type.startsWith('image/')) {
+        alert('请选择图像文件作为内容');
+        e.target.value = '';
+        return;
+    } else if (type === 'video' && !file.type.startsWith('video/')) {
+        alert('请选择视频文件作为内容');
+        e.target.value = '';
+        return;
+    } else if (type === '3d' && !file.name.endsWith('.gltf') && !file.name.endsWith('.glb')) {
+        alert('请选择GLTF或GLB文件作为3D模型内容');
+        e.target.value = '';
+        return;
+    }
+    
+    // 显示预览
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        if (type === 'image') {
+            contentPreview.innerHTML = `<img src="${e.target.result}" alt="内容预览" class="preview-image">`;
+        } else if (type === 'video') {
+            contentPreview.innerHTML = `<video src="${e.target.result}" controls style="max-width: 100%; max-height: 200px;"></video>`;
+        } else if (type === '3d') {
+            contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${file.name})</div>`;
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+// 删除内容
+function deleteContent(id) {
+    if (!confirm('确定要删除此内容吗？此操作无法撤销。')) return;
+    
+    const index = contents.findIndex(item => item.id === id);
+    if (index !== -1) {
+        contents.splice(index, 1);
+        saveContents();
+        renderContentList();
+    }
+}
+
+// 显示二维码
+function showQRCode(id) {
+    const content = contents.find(item => item.id === id);
+    if (!content) return;
+    
+    // 生成AR查看器URL - 确保使用正确的路径
+    const baseUrl = window.location.href.includes('index.html') 
+        ? window.location.href.replace('index.html', '') 
+        : window.location.href.endsWith('/') 
+            ? window.location.href 
+            : window.location.href + '/';
+    
+    const url = `${baseUrl}ar-viewer.html?id=${id}`;
+    
+    console.log('生成的AR URL:', url);
+    console.log('内容ID:', id);
+    
+    // 清空二维码容器
+    qrCode.innerHTML = '';
+    
+    // 显示URL
+    arUrl.textContent = url;
+    
+    // 使用QRCode库生成二维码
+    try {
+        // 确保QRCode库已加载
+        if (typeof QRCode === 'undefined') {
+            // 如果QRCode未定义，动态加载库
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js';
+            document.head.appendChild(script);
+            
+            script.onload = function() {
+                // 库加载完成后生成二维码
+                generateQRCode(qrCode, url);
+            };
+            
+            script.onerror = function() {
+                console.error('QRCode库加载失败');
+                qrCode.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">QRCode库加载失败</div>';
+            };
+        } else {
+            // QRCode已定义，直接生成
+            generateQRCode(qrCode, url);
+        }
+    } catch (error) {
+        console.error('生成二维码失败:', error);
+        qrCode.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">二维码生成失败，请检查控制台错误</div>';
+    }
+    
+    // 显示模态框
+    qrModal.style.display = 'block';
+}
+
+// 生成二维码的辅助函数
+function generateQRCode(element, text) {
+    try {
+        // 清空容器
+        element.innerHTML = '';
+        
+        // 创建新的QRCode实例
+        new QRCode(element, {
+            text: text,
+            width: 200,
+            height: 200,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        console.log('二维码生成成功');
+    } catch (error) {
+        console.error('二维码生成出错:', error);
+        element.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">
+            二维码生成失败: ${error.message}<br>
+            请手动复制链接: <br>
+            <textarea readonly style="width: 100%; margin-top: 10px;">${text}</textarea>
+        </div>`;
+    }
+}
+
+// 复制AR URL
+function copyArUrl() {
+    const url = arUrl.textContent;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url)
+            .then(() => {
+                // 显示复制成功提示
+                const originalText = copyUrlBtn.textContent;
+                copyUrlBtn.textContent = '已复制!';
+                copyUrlBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyUrlBtn.textContent = originalText;
+                    copyUrlBtn.classList.remove('copied');
+                }, 2000);
+            })
+            .catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制链接');
+            });
+    } else {
+        // 回退方法
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            // 显示复制成功提示
+            const originalText = copyUrlBtn.textContent;
+            copyUrlBtn.textContent = '已复制!';
+            copyUrlBtn.classList.add('copied');
+            
+            setTimeout(() => {
+                copyUrlBtn.textContent = originalText;
+                copyUrlBtn.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制链接');
+        }
+        
+        document.body.removeChild(textarea);
+    }
+}
+
+// 生成唯一ID
+function generateId() {
+    return 'ar-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
