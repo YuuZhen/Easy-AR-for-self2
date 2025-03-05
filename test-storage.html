@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地存储测试</title>
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background-color: #4361ee;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AR内容本地存储测试</h1>
+    
+    <div>
+        <button id="checkStorage">检查存储</button>
+        <button id="createTestData">创建测试数据</button>
+        <button id="clearStorage">清除存储</button>
+    </div>
+    
+    <div class="result">
+        <h3>存储内容:</h3>
+        <pre id="storageContent">点击"检查存储"按钮查看内容</pre>
+    </div>
+    
+    <div class="result">
+        <h3>测试链接:</h3>
+        <div id="testLinks"></div>
+    </div>
+    
+    <script>
+        // 检查本地存储
+        document.getElementById('checkStorage').addEventListener('click', function() {
+            const arContents = localStorage.getItem('arContents');
+            const storageContent = document.getElementById('storageContent');
+            const testLinks = document.getElementById('testLinks');
+            testLinks.innerHTML = '';
+            
+            if (!arContents) {
+                storageContent.textContent = '未找到AR内容数据';
+                return;
+            }
+            
+            try {
+                const contents = JSON.parse(arContents);
+                storageContent.textContent = JSON.stringify(contents, null, 2);
+                
+                if (contents && Array.isArray(contents) && contents.length > 0) {
+                    contents.forEach(content => {
+                        testLinks.innerHTML += `
+                            <p><strong>${content.name}</strong> (${content.type})</p>
+                            <a href="ar-viewer.html?id=${content.id}" target="_blank">
+                                ar-viewer.html?id=${content.id}
+                            </a>
+                            <hr>
+                        `;
+                    });
+                } else {
+                    testLinks.innerHTML = '<p>没有可用的AR内容</p>';
+                }
+            } catch (error) {
+                storageContent.textContent = `解析错误: ${error.message}`;
+            }
+        });
+        
+        // 创建测试数据
+        document.getElementById('createTestData').addEventListener('click', function() {
+            const testData = [{
+                id: 'test1',
+                name: '测试图片',
+                type: 'image',
+                markerImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+                contentFile: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }];
+            
+            localStorage.setItem('arContents', JSON.stringify(testData));
+            alert('测试数据已创建');
+            document.getElementById('checkStorage').click();
+        });
+        
+        // 清除存储
+        document.getElementById('clearStorage').addEventListener('click', function() {
+            if (confirm('确定要清除所有AR内容数据吗？')) {
+                localStorage.removeItem('arContents');
+                document.getElementById('storageContent').textContent = '存储已清除';
+                document.getElementById('testLinks').innerHTML = '';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR 内容管理系统</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-js@0.0.2/qrcode.min.js"></script>
+    <!-- 或者使用以下CDN -->
+    <!-- <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script> -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AR 内容管理系统</h1>
+            <button id="addContentBtn" class="btn"><i class="ri-add-line"></i> 添加新内容</button>
+        </header>
+        
+        <div id="contentList" class="content-list">
+            <!-- 内容卡片将通过 JavaScript 动态生成 -->
+        </div>
+    </div>
+    
+    <!-- 添加/编辑内容模态框 -->
+    <div id="contentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">添加新内容</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="contentForm">
+                <input type="hidden" id="contentId">
+                
+                <div class="form-group">
+                    <label for="contentName">内容名称</label>
+                    <input type="text" id="contentName" required placeholder="输入AR内容名称">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentType">内容类型</label>
+                    <select id="contentType" required>
+                        <option value="image">图片</option>
+                        <option value="video">视频</option>
+                        <option value="3d">3D 模型</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="markerImage">标记图像</label>
+                    <div class="file-input-container">
+                        <label class="file-input-label" for="markerImage"><i class="ri-image-add-line"></i> 选择图像文件</label>
+                        <input type="file" id="markerImage" class="file-input" accept="image/*" required>
+                    </div>
+                    <div id="markerDropZone" class="drop-zone">
+                        <i class="ri-upload-cloud-line"></i>
+                        <div class="drop-zone-prompt">拖拽图片到此处或点击上传</div>
+                    </div>
+                    <!-- 在markerDropZone之后 -->
+                    <div id="markerProgressContainer" class="progress-container">
+                        <div class="progress-bar">
+                            <div id="markerProgressBar" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="markerProgressText" class="progress-text">0%</div>
+                    </div>
+                    <div id="markerPreview" class="preview-container"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentFile">内容文件</label>
+                    <div class="file-input-container">
+                        <label class="file-input-label" for="contentFile"><i class="ri-file-upload-line"></i> 选择内容文件</label>
+                        <input type="file" id="contentFile" class="file-input" required>
+                    </div>
+                    <div id="contentDropZone" class="drop-zone">
+                        <i class="ri-upload-cloud-line"></i>
+                        <div class="drop-zone-prompt">拖拽文件到此处或点击上传</div>
+                    </div>
+                    <!-- 在contentDropZone之后 -->
+                    <div id="contentProgressContainer" class="progress-container">
+                        <div class="progress-bar">
+                            <div id="contentProgressBar" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="contentProgressText" class="progress-text">0%</div>
+                    </div>
+                    <div id="contentPreview" class="preview-container"></div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn"><i class="ri-save-line"></i> 保存内容</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 查看二维码模态框 -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">AR 内容二维码</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="qr-container">
+                <div id="qrCode" class="qr-code"></div>
+                <p id="arUrl" style="word-break: break-all; margin: 15px 0;"></p>
+                <button id="copyUrlBtn" class="btn btn-secondary"><i class="ri-file-copy-line"></i> 复制链接</button>
+                <button id="saveQrBtn" class="btn btn-secondary" style="margin-left: 10px;"><i class="ri-download-line"></i> 保存二维码</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 先加载QR工具 -->
+    <script src="js/qr-loader.js"></script>
+    <!-- 然后加载主应用脚本 -->
+    <script src="app.js"></script>
+    
+    <script>
+        // 绑定保存二维码按钮
+        document.addEventListener('DOMContentLoaded', function() {
+            const saveQrBtn = document.getElementById('saveQrBtn');
+            if (saveQrBtn) {
+                saveQrBtn.addEventListener('click', function() {
+                    if (window.QRTools) {
+                        window.QRTools.saveQRCode('qrCode', 'ar-content-qr');
+                    } else {
+                        alert('QR码工具未加载，无法保存二维码');
+                    }
+                });
+            }
+            
+            // 添加调试功能 - 测试进度条
+            window.testProgressBar = function() {
+                const markerBar = document.getElementById('markerProgressBar');
+                const markerText = document.getElementById('markerProgressText');
+                const markerContainer = document.getElementById('markerProgressContainer');
+                
+                markerContainer.style.display = 'block';
+                
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    markerBar.style.width = `${progress}%`;
+                    markerText.textContent = `${progress}%`;
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            markerContainer.style.display = 'none';
+                        }, 1000);
+                    }
+                }, 300);
+            };
+            
+            // 可以在控制台调用 window.testProgressBar() 来测试进度条
+        });
+    </script>
+</body>
+</html>
