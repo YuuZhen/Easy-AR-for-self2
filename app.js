@@ -15,8 +15,26 @@ function init() {
     preloadQRCodeLibrary();
     loadContents();
     renderContentList();
+    updateDropZoneText(); // 添加这一行来更新拖拽区域文本
     addEventListeners();
     initDragAndDrop();
+}
+
+// 更新拖拽区域文本
+function updateDropZoneText() {
+    if (markerDropZone) {
+        const textElement = markerDropZone.querySelector('.drop-text') || markerDropZone;
+        if (textElement) {
+            textElement.innerHTML = '<i class="ri-upload-cloud-line"></i><br>拖拽文件到此处或点击上传';
+        }
+    }
+    
+    if (contentDropZone) {
+        const textElement = contentDropZone.querySelector('.drop-text') || contentDropZone;
+        if (textElement) {
+            textElement.innerHTML = '<i class="ri-upload-cloud-line"></i><br>拖拽文件到此处或点击上传';
+        }
+    }
 }
 
 // 预加载QRCode库
@@ -230,6 +248,11 @@ function initDragAndDrop() {
 // 设置拖拽区域
 function setupDropZone(dropZone, fileInput, changeHandler) {
     if (!dropZone) return;
+    
+    // 隐藏原始文件输入框
+    if (fileInput) {
+        fileInput.style.display = 'none';
+    }
     
     // 点击拖拽区域触发文件选择
     dropZone.addEventListener('click', () => fileInput.click());
@@ -537,12 +560,18 @@ function readFileAsDataURL(file, progressCallback) {
         // 开始读取时显示0%进度
         progressCallback(0);
         
-        // 模拟进度更新
+        // 显示文件信息
+        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+        console.log(`开始上传: ${file.name} (${fileSize} MB)`);
+        
+        // 模拟进度更新，更加平滑
         let simulatedProgress = 0;
         const progressInterval = setInterval(() => {
-            if (simulatedProgress < 90) {
-                simulatedProgress += Math.random() * 5 + 2;
-                progressCallback(Math.min(simulatedProgress, 90));
+            if (simulatedProgress < 95) {
+                // 根据文件大小调整进度增长速度
+                const increment = Math.max(0.5, Math.min(5, 10 / Math.sqrt(file.size / 1024)));
+                simulatedProgress += increment;
+                progressCallback(Math.min(simulatedProgress, 95));
             } else {
                 clearInterval(progressInterval);
             }
@@ -551,12 +580,14 @@ function readFileAsDataURL(file, progressCallback) {
         reader.onload = function(e) {
             clearInterval(progressInterval);
             progressCallback(100);
+            console.log(`上传完成: ${file.name}`);
             resolve(e.target.result);
         };
         
         reader.onerror = function(e) {
             clearInterval(progressInterval);
-            reject(new Error('文件读取失败'));
+            console.error(`上传失败: ${file.name}`, e);
+            reject(new Error(`文件 ${file.name} 读取失败`));
         };
         
         reader.onprogress = function(e) {
@@ -564,13 +595,14 @@ function readFileAsDataURL(file, progressCallback) {
                 const progress = (e.loaded / e.total) * 100;
                 clearInterval(progressInterval);
                 progressCallback(progress);
+                console.log(`上传进度: ${file.name} - ${Math.round(progress)}%`);
                 
-                if (progress < 90) {
+                if (progress < 95) {
                     simulatedProgress = progress;
                     const newProgressInterval = setInterval(() => {
-                        if (simulatedProgress < 90) {
-                            simulatedProgress += Math.random() * 3 + 1;
-                            progressCallback(Math.min(simulatedProgress, 90));
+                        if (simulatedProgress < 95) {
+                            simulatedProgress += 0.5;
+                            progressCallback(Math.min(simulatedProgress, 95));
                         } else {
                             clearInterval(newProgressInterval);
                         }
@@ -579,6 +611,7 @@ function readFileAsDataURL(file, progressCallback) {
             }
         };
         
+        // 添加小延迟以确保UI更新
         setTimeout(() => {
             reader.readAsDataURL(file);
         }, 50);
