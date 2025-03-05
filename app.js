@@ -341,6 +341,53 @@ function handleFormSubmit(e) {
         return;
     }
     
+    // 处理文件 - 修复这里，删除错误的代码块
+    processFiles(id, name, type);
+}
+
+// 检查是否是编辑模式且已有内容
+function isEditingWithExistingContent() {
+    const id = contentId.value;
+    if (!id) return false;
+    
+    const content = contents.find(item => item.id === id);
+    return content && content.contentFile;
+}
+
+// 生成唯一ID
+function generateId() {
+    return 'ar_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// 复制AR URL
+function copyArUrl() {
+    const urlText = arUrl.textContent;
+    
+    const copyToClipboard = async () => {
+        try {
+            if (navigator.clipboard) {
+                await navigator.clipboard.writeText(urlText);
+                showCopySuccess();
+            } else {
+                fallbackCopyToClipboard();
+            }
+        } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制URL');
+        }
+    };
+    
+    const showCopySuccess = () => {
+        const originalText = copyUrlBtn.textContent;
+        copyUrlBtn.textContent = '已复制!';
+        copyUrlBtn.classList.add('copied');
+        
+        setTimeout(() => {
+            copyUrlBtn.textContent = originalText;
+            copyUrlBtn.classList.remove('copied');
+        }, 2000);
+    };
+    
     const fallbackCopyToClipboard = () => {
         const textArea = document.createElement('textarea');
         textArea.value = urlText;
