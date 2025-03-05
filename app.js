@@ -416,23 +416,27 @@ function processFiles(id, name, type) {
         contentFileData = existingContent.contentFile;
     }
     
-    // 显示进度条容器
-    markerProgressContainer.style.display = 'block';
-    contentProgressContainer.style.display = 'block';
+    // 添加进度条覆盖层到预览区域
+    addProgressOverlay(markerPreview, 'marker-progress-overlay');
+    addProgressOverlay(contentPreview, 'content-progress-overlay');
     
-    // 初始化进度条
-    updateProgress(markerProgressBar, markerProgressText, 0);
-    updateProgress(contentProgressBar, contentProgressText, 0);
+    // 获取新创建的覆盖层进度条元素
+    const markerProgressOverlay = document.getElementById('marker-progress-overlay');
+    const contentProgressOverlay = document.getElementById('content-progress-overlay');
     
     // 处理标记图像
     const processMarkerImage = new Promise((resolve, reject) => {
         if (markerImage.files[0]) {
             readFileAsDataURL(markerImage.files[0], (progress) => {
-                updateProgress(markerProgressBar, markerProgressText, progress);
+                updateProgressOverlay(markerProgressOverlay, progress);
             }).then(data => {
                 markerImageData = data;
                 // 完成后设置为100%
-                updateProgress(markerProgressBar, markerProgressText, 100);
+                updateProgressOverlay(markerProgressOverlay, 100);
+                // 短暂延迟后移除覆盖层
+                setTimeout(() => {
+                    if (markerProgressOverlay) markerProgressOverlay.style.opacity = '0';
+                }, 500);
                 resolve();
             }).catch(error => {
                 console.error('处理标记图像失败:', error);
@@ -440,8 +444,11 @@ function processFiles(id, name, type) {
                 reject(error);
             });
         } else {
-            // 如果没有新文件，直接设置为100%
-            updateProgress(markerProgressBar, markerProgressText, 100);
+            // 如果没有新文件，直接设置为100%并隐藏
+            updateProgressOverlay(markerProgressOverlay, 100);
+            setTimeout(() => {
+                if (markerProgressOverlay) markerProgressOverlay.style.opacity = '0';
+            }, 500);
             resolve();
         }
     });
@@ -450,11 +457,15 @@ function processFiles(id, name, type) {
     const processContentFile = new Promise((resolve, reject) => {
         if (contentFile.files[0]) {
             readFileAsDataURL(contentFile.files[0], (progress) => {
-                updateProgress(contentProgressBar, contentProgressText, progress);
+                updateProgressOverlay(contentProgressOverlay, progress);
             }).then(data => {
                 contentFileData = data;
                 // 完成后设置为100%
-                updateProgress(contentProgressBar, contentProgressText, 100);
+                updateProgressOverlay(contentProgressOverlay, 100);
+                // 短暂延迟后移除覆盖层
+                setTimeout(() => {
+                    if (contentProgressOverlay) contentProgressOverlay.style.opacity = '0';
+                }, 500);
                 resolve();
             }).catch(error => {
                 console.error('处理内容文件失败:', error);
@@ -462,8 +473,11 @@ function processFiles(id, name, type) {
                 reject(error);
             });
         } else {
-            // 如果没有新文件，直接设置为100%
-            updateProgress(contentProgressBar, contentProgressText, 100);
+            // 如果没有新文件，直接设置为100%并隐藏
+            updateProgressOverlay(contentProgressOverlay, 100);
+            setTimeout(() => {
+                if (contentProgressOverlay) contentProgressOverlay.style.opacity = '0';
+            }, 500);
             resolve();
         }
     });
