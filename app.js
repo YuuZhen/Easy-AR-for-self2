@@ -55,6 +55,13 @@ function initDOMElements() {
     markerPreview = document.getElementById('markerPreview');
     contentPreview = document.getElementById('contentPreview');
     addContentBtn = document.getElementById('addContentBtn');
+    
+    // 检查addContentBtn是否正确获取
+    if (!addContentBtn) {
+        console.error('无法找到添加内容按钮，尝试使用类选择器');
+        addContentBtn = document.querySelector('.add-content-btn');
+    }
+    
     closeButtons = document.querySelectorAll('.close');
     qrCode = document.getElementById('qrCode');
     arUrl = document.getElementById('arUrl');
@@ -157,9 +164,17 @@ function getContentTypeName(type) {
 // 添加事件监听器
 function addEventListeners() {
     // 添加内容按钮
-    addContentBtn.addEventListener('click', () => {
-        openAddContentModal();
-    });
+    if (addContentBtn) {
+        console.log('为添加内容按钮添加点击事件');
+        addContentBtn.addEventListener('click', openAddContentModal);
+        
+        // 添加调试信息
+        addContentBtn.addEventListener('click', function() {
+            console.log('添加内容按钮被点击');
+        });
+    } else {
+        console.error('添加内容按钮未找到，无法添加事件监听器');
+    }
     
     // 关闭按钮
     closeButtons.forEach(button => {
@@ -291,6 +306,7 @@ function handleContentListClick(e) {
 
 // 打开添加内容模态框
 function openAddContentModal() {
+    console.log('打开添加内容模态框');
     modalTitle.textContent = '添加新内容';
     contentId.value = '';
     contentForm.reset();
