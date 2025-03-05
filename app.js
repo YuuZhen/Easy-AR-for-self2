@@ -76,6 +76,10 @@ function initDOMElements() {
     contentProgressBar = document.getElementById('contentProgressBar');
     markerProgressText = document.getElementById('markerProgressText');
     contentProgressText = document.getElementById('contentProgressText');
+    
+    // 初始化隐藏进度条
+    if (markerProgressContainer) markerProgressContainer.style.display = 'none';
+    if (contentProgressContainer) contentProgressContainer.style.display = 'none';
 }
 
 // 加载内容
@@ -164,16 +168,34 @@ function getContentTypeName(type) {
 // 添加事件监听器
 function addEventListeners() {
     // 添加内容按钮
+    console.log('添加内容按钮元素:', addContentBtn);
+    
     if (addContentBtn) {
         console.log('为添加内容按钮添加点击事件');
-        addContentBtn.addEventListener('click', openAddContentModal);
-        
-        // 添加调试信息
+        // 移除重复的事件监听器，只保留一个
+        addContentBtn.removeEventListener('click', openAddContentModal);
         addContentBtn.addEventListener('click', function() {
             console.log('添加内容按钮被点击');
+            openAddContentModal();
         });
     } else {
-        console.error('添加内容按钮未找到，无法添加事件监听器');
+        console.error('添加内容按钮未找到，尝试查找其他可能的选择器');
+        // 尝试其他可能的选择器
+        const possibleButtons = document.querySelectorAll('button, .btn, .button');
+        console.log('页面上的所有按钮:', possibleButtons);
+        
+        // 尝试通过文本内容查找
+        const addButton = Array.from(possibleButtons).find(btn => 
+            btn.textContent.includes('添加') || 
+            btn.textContent.includes('新增') || 
+            btn.textContent.includes('新建') ||
+            btn.textContent.includes('Add')
+        );
+        
+        if (addButton) {
+            console.log('找到可能的添加按钮:', addButton);
+            addButton.addEventListener('click', openAddContentModal);
+        }
     }
     
     // 关闭按钮
@@ -412,9 +434,8 @@ function processFiles(id, name, type) {
                 // 完成后设置为100%
                 updateProgress(markerProgressBar, markerProgressText, 100);
                 resolve();
-            }).catch(error => {                updateProgress(markerProgressBar, markerProgressText, 100);
-                resolve();
             }).catch(error => {
+                // 删除重复的代码块
                 console.error('处理标记图像失败:', error);
                 alert('处理标记图像失败: ' + error.message);
                 reject(error);
@@ -507,6 +528,9 @@ function readFileAsDataURL(file, progressCallback) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         
+        // 开始读取时显示0%进度
+        progressCallback(0);
+        
         reader.onload = function(e) {
             // 完成时回调100%进度
             progressCallback(100);
@@ -524,7 +548,10 @@ function readFileAsDataURL(file, progressCallback) {
             }
         };
         
-        reader.readAsDataURL(file);
+        // 添加延迟，确保进度条动画可见
+        setTimeout(() => {
+            reader.readAsDataURL(file);
+        }, 100);
     });
 }
 
