@@ -15,7 +15,7 @@ function init() {
     preloadQRCodeLibrary();
     loadContents();
     renderContentList();
-    updateDropZoneText(); // 添加这一行来更新拖拽区域文本
+    updateDropZoneText();
     addEventListeners();
     initDragAndDrop();
 }
@@ -227,7 +227,6 @@ function addEventListeners() {
         }
     });
 }
-
 // 更新内容文件接受类型
 function updateContentFileAcceptType() {
     const type = contentType.value;
@@ -364,7 +363,7 @@ function handleFormSubmit(e) {
         return;
     }
     
-    // 处理文件 - 修复这里，删除错误的代码块
+    // 处理文件
     processFiles(id, name, type);
 }
 
@@ -542,13 +541,26 @@ function updateProgress(progressBar, progressText, progress) {
     progressBar.style.width = `${safeProgress}%`;
     progressText.textContent = `${Math.round(safeProgress)}%`;
     
-    // 根据进度改变颜色
+    // 根据进度改变颜色和添加动画效果
     if (safeProgress < 30) {
         progressBar.style.backgroundColor = '#ff9800';
     } else if (safeProgress < 70) {
         progressBar.style.backgroundColor = '#2196f3';
     } else {
         progressBar.style.backgroundColor = '#4caf50';
+    }
+    
+    // 添加脉动动画效果当进度未完成时
+    if (safeProgress < 100) {
+        progressBar.style.animation = 'pulse 1.5s infinite';
+    } else {
+        progressBar.style.animation = 'none';
+        // 完成时闪烁一下
+        progressBar.style.transition = 'background-color 0.3s';
+        progressBar.style.backgroundColor = '#4caf50';
+        setTimeout(() => {
+            progressBar.style.backgroundColor = '#4caf50';
+        }, 300);
     }
 }
 
@@ -647,31 +659,35 @@ function handleContentFileChange(e) {
     
     // 检查文件类型
     if (type === 'image' && !file.type.startsWith('image/')) {
-        alert('请选择图像文件作为内容');
+        alert('请选择图像文件');
         e.target.value = '';
         return;
     } else if (type === 'video' && !file.type.startsWith('video/')) {
-        alert('请选择视频文件作为内容');
+        alert('请选择视频文件');
         e.target.value = '';
         return;
-    } else if (type === '3d' && !file.name.endsWith('.gltf') && !file.name.endsWith('.glb')) {
-        alert('请选择GLTF或GLB文件作为3D模型内容');
+    } else if (type === '3d' && !file.name.endsWith('.glb') && !file.name.endsWith('.gltf')) {
+        alert('请选择 .glb 或 .gltf 格式的3D模型文件');
         e.target.value = '';
         return;
     }
     
     // 显示预览
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        if (type === 'image') {
+    if (type === 'image') {
+        const reader = new FileReader();
+        reader.onload = function(e) {
             contentPreview.innerHTML = `<img src="${e.target.result}" alt="内容预览" class="preview-image">`;
-        } else if (type === 'video') {
+        };
+        reader.readAsDataURL(file);
+    } else if (type === 'video') {
+        const reader = new FileReader();
+        reader.onload = function(e) {
             contentPreview.innerHTML = `<video src="${e.target.result}" controls style="max-width: 100%; max-height: 200px;"></video>`;
-        } else if (type === '3d') {
-            contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${file.name})</div>`;
-        }
-    };
-    reader.readAsDataURL(file);
+        };
+        reader.readAsDataURL(file);
+    } else if (type === '3d') {
+        contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${file.name})</div>`;
+    }
 }
 
 // 删除内容
