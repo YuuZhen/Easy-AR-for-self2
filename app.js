@@ -549,6 +549,9 @@ function processFiles(id, name, type) {
             if (markerProgressContainer) markerProgressContainer.style.display = 'none';
             if (contentProgressContainer) contentProgressContainer.style.display = 'none';
             
+            // 显示上传成功通知
+            showNotification(`AR内容 "${content.name}" 已成功${isEditing ? '更新' : '创建'}`, 'success');
+            
             // 显示二维码
             showQRCode(content.id);
             
