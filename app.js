@@ -77,12 +77,11 @@ function initDOMElements() {
     contentDropZone = document.getElementById('contentDropZone');
     markerProgressContainer = document.getElementById('markerProgressContainer');
     contentProgressContainer = document.getElementById('contentProgressContainer');
-    markerProgressBar = document.getElementById('markerProgressBar');
-    contentProgressBar = document.getElementById('contentProgressBar');
+    // 移除进度条元素引用，只保留文本显示
     markerProgressText = document.getElementById('markerProgressText');
     contentProgressText = document.getElementById('contentProgressText');
     
-    // 初始化隐藏进度条
+    // 初始化隐藏进度容器
     if (markerProgressContainer) markerProgressContainer.style.display = 'none';
     if (contentProgressContainer) contentProgressContainer.style.display = 'none';
 }
@@ -443,26 +442,29 @@ function processFiles(id, name, type) {
         contentFileData = existingContent.contentFile;
     }
     
-    // 显示进度条
-    if (markerProgressContainer) markerProgressContainer.style.display = 'block';
-    if (contentProgressContainer) contentProgressContainer.style.display = 'block';
+    // 显示上传状态文本
+    if (markerProgressText) markerProgressText.textContent = '准备上传...';
+    if (contentProgressText) contentProgressText.textContent = '准备上传...';
     
     // 处理标记图像
     const processMarkerImage = new Promise((resolve, reject) => {
         if (markerImage.files[0]) {
             readFileAsDataURL(markerImage.files[0], (progress) => {
-                updateProgress(markerProgressBar, markerProgressText, progress);
+                // 只更新文本显示
+                if (markerProgressText) markerProgressText.textContent = `${Math.round(progress)}%`;
             }).then(data => {
                 markerImageData = data;
+                if (markerProgressText) markerProgressText.textContent = '100% 完成';
                 resolve();
             }).catch(error => {
                 console.error('处理标记图像失败:', error);
+                if (markerProgressText) markerProgressText.textContent = '上传失败';
                 alert('处理标记图像失败: ' + error.message);
                 reject(error);
             });
         } else {
             // 如果没有新文件，直接完成
-            updateProgress(markerProgressBar, markerProgressText, 100);
+            if (markerProgressText) markerProgressText.textContent = '无需上传';
             resolve();
         }
     });
@@ -471,18 +473,21 @@ function processFiles(id, name, type) {
     const processContentFile = new Promise((resolve, reject) => {
         if (contentFile.files[0]) {
             readFileAsDataURL(contentFile.files[0], (progress) => {
-                updateProgress(contentProgressBar, contentProgressText, progress);
+                // 只更新文本显示
+                if (contentProgressText) contentProgressText.textContent = `${Math.round(progress)}%`;
             }).then(data => {
                 contentFileData = data;
+                if (contentProgressText) contentProgressText.textContent = '100% 完成';
                 resolve();
             }).catch(error => {
                 console.error('处理内容文件失败:', error);
+                if (contentProgressText) contentProgressText.textContent = '上传失败';
                 alert('处理内容文件失败: ' + error.message);
                 reject(error);
             });
         } else {
             // 如果没有新文件，直接完成
-            updateProgress(contentProgressBar, contentProgressText, 100);
+            if (contentProgressText) contentProgressText.textContent = '无需上传';
             resolve();
         }
     });
@@ -518,50 +523,12 @@ function processFiles(id, name, type) {
             // 关闭模态框
             contentModal.style.display = 'none';
             
-            // 隐藏进度条
-            if (markerProgressContainer) markerProgressContainer.style.display = 'none';
-            if (contentProgressContainer) contentProgressContainer.style.display = 'none';
-            
             // 显示二维码
             showQRCode(content.id);
         })
         .catch(error => {
             console.error('处理文件失败:', error);
-            // 隐藏进度条
-            if (markerProgressContainer) markerProgressContainer.style.display = 'none';
-            if (contentProgressContainer) contentProgressContainer.style.display = 'none';
         });
-}
-
-// 更新进度条
-function updateProgress(progressBar, progressText, progress) {
-    if (!progressBar || !progressText) return;
-    
-    const safeProgress = Math.max(0, Math.min(100, progress));
-    progressBar.style.width = `${safeProgress}%`;
-    progressText.textContent = `${Math.round(safeProgress)}%`;
-    
-    // 根据进度改变颜色和添加动画效果
-    if (safeProgress < 30) {
-        progressBar.style.backgroundColor = '#ff9800';
-    } else if (safeProgress < 70) {
-        progressBar.style.backgroundColor = '#2196f3';
-    } else {
-        progressBar.style.backgroundColor = '#4caf50';
-    }
-    
-    // 添加脉动动画效果当进度未完成时
-    if (safeProgress < 100) {
-        progressBar.style.animation = 'pulse 1.5s infinite';
-    } else {
-        progressBar.style.animation = 'none';
-        // 完成时闪烁一下
-        progressBar.style.transition = 'background-color 0.3s';
-        progressBar.style.backgroundColor = '#4caf50';
-        setTimeout(() => {
-            progressBar.style.backgroundColor = '#4caf50';
-        }, 300);
-    }
 }
 
 // 读取文件为 Data URL
