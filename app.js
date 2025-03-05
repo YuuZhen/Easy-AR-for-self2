@@ -5,7 +5,7 @@ let contents = [];
 let contentList, contentModal, qrModal, contentForm, modalTitle, contentId, contentName, contentType;
 let markerImage, contentFile, markerPreview, contentPreview, addContentBtn, closeButtons, qrCode, arUrl, copyUrlBtn;
 let markerDropZone, contentDropZone, markerProgressContainer, contentProgressContainer;
-let markerProgressBar, contentProgressBar, markerProgressText, contentProgressText;
+let markerProgressText, contentProgressText;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', init);
@@ -77,7 +77,6 @@ function initDOMElements() {
     contentDropZone = document.getElementById('contentDropZone');
     markerProgressContainer = document.getElementById('markerProgressContainer');
     contentProgressContainer = document.getElementById('contentProgressContainer');
-    // 移除进度条元素引用，只保留文本显示
     markerProgressText = document.getElementById('markerProgressText');
     contentProgressText = document.getElementById('contentProgressText');
     
@@ -226,6 +225,7 @@ function addEventListeners() {
         }
     });
 }
+
 // 更新内容文件接受类型
 function updateContentFileAcceptType() {
     const type = contentType.value;
@@ -438,33 +438,47 @@ function processFiles(id, name, type) {
     // 如果是编辑模式且没有选择新文件，使用现有文件
     if (isEditing) {
         const existingContent = contents.find(item => item.id === id);
-        markerImageData = existingContent.markerImage;
-        contentFileData = existingContent.contentFile;
+        if (existingContent) {
+            markerImageData = existingContent.markerImage;
+            contentFileData = existingContent.contentFile;
+        } else {
+            console.error('编辑内容不存在:', id);
+            alert('编辑的内容不存在，请重新创建');
+            return;
+        }
     }
     
     // 显示上传状态文本
     if (markerProgressText) markerProgressText.textContent = '准备上传...';
     if (contentProgressText) contentProgressText.textContent = '准备上传...';
     
+    // 显示进度容器
+    if (markerProgressContainer) markerProgressContainer.style.display = 'block';
+    if (contentProgressContainer) contentProgressContainer.style.display = 'block';
+    
     // 处理标记图像
     const processMarkerImage = new Promise((resolve, reject) => {
         if (markerImage.files[0]) {
             readFileAsDataURL(markerImage.files[0], (progress) => {
-                // 只更新文本显示
                 if (markerProgressText) markerProgressText.textContent = `${Math.round(progress)}%`;
             }).then(data => {
                 markerImageData = data;
-                if (markerProgressText) markerProgressText.textContent = '100% 完成';
+                if (markerProgressText) markerProgressText.textContent = '完成';
                 resolve();
             }).catch(error => {
                 console.error('处理标记图像失败:', error);
-                if (markerProgressText) markerProgressText.textContent = '上传失败';
+                if (markerProgressText) markerProgressText.textContent = '失败';
                 alert('处理标记图像失败: ' + error.message);
                 reject(error);
             });
         } else {
-            // 如果没有新文件，直接完成
             if (markerProgressText) markerProgressText.textContent = '无需上传';
+            
+            if (!markerImageData) {
+                reject(new Error('缺少标记图像'));
+                return;
+            }
+            
             resolve();
         }
     });
@@ -473,21 +487,25 @@ function processFiles(id, name, type) {
     const processContentFile = new Promise((resolve, reject) => {
         if (contentFile.files[0]) {
             readFileAsDataURL(contentFile.files[0], (progress) => {
-                // 只更新文本显示
                 if (contentProgressText) contentProgressText.textContent = `${Math.round(progress)}%`;
             }).then(data => {
                 contentFileData = data;
-                if (contentProgressText) contentProgressText.textContent = '100% 完成';
+                if (contentProgressText) contentProgressText.textContent = '完成';
                 resolve();
             }).catch(error => {
                 console.error('处理内容文件失败:', error);
-                if (contentProgressText) contentProgressText.textContent = '上传失败';
+                if (contentProgressText) contentProgressText.textContent = '失败';
                 alert('处理内容文件失败: ' + error.message);
                 reject(error);
             });
         } else {
-            // 如果没有新文件，直接完成
             if (contentProgressText) contentProgressText.textContent = '无需上传';
+            
+            if (!contentFileData) {
+                reject(new Error('缺少内容文件'));
+                return;
+            }
+            
             resolve();
         }
     });
@@ -509,7 +527,11 @@ function processFiles(id, name, type) {
             // 更新内容列表
             if (isEditing) {
                 const index = contents.findIndex(item => item.id === id);
-                contents[index] = content;
+                if (index !== -1) {
+                    contents[index] = content;
+                } else {
+                    contents.push(content);
+                }
             } else {
                 contents.push(content);
             }
@@ -523,17 +545,33 @@ function processFiles(id, name, type) {
             // 关闭模态框
             contentModal.style.display = 'none';
             
+            // 隐藏进度容器
+            if (markerProgressContainer) markerProgressContainer.style.display = 'none';
+            if (contentProgressContainer) contentProgressContainer.style.display = 'none';
+            
             // 显示二维码
             showQRCode(content.id);
+            
+            console.log(`AR内容 "${content.name}" 已成功${isEditing ? '更新' : '创建'}`);
         })
         .catch(error => {
             console.error('处理文件失败:', error);
+            alert(`处理文件失败: ${error.message}`);
+            
+            // 隐藏进度容器
+            if (markerProgressContainer) markerProgressContainer.style.display = 'none';
+            if (contentProgressContainer) contentProgressContainer.style.display = 'none';
         });
 }
 
 // 读取文件为 Data URL
 function readFileAsDataURL(file, progressCallback) {
     return new Promise((resolve, reject) => {
+        if (!file || !(file instanceof File)) {
+            reject(new Error('无效的文件对象'));
+            return;
+        }
+        
         const reader = new FileReader();
         
         // 开始读取时显示0%进度
@@ -541,58 +579,34 @@ function readFileAsDataURL(file, progressCallback) {
         
         // 显示文件信息
         const fileSize = (file.size / (1024 * 1024)).toFixed(2);
-        console.log(`开始上传: ${file.name} (${fileSize} MB)`);
-        
-        // 模拟进度更新，更加平滑
-        let simulatedProgress = 0;
-        const progressInterval = setInterval(() => {
-            if (simulatedProgress < 95) {
-                // 根据文件大小调整进度增长速度
-                const increment = Math.max(0.5, Math.min(5, 10 / Math.sqrt(file.size / 1024)));
-                simulatedProgress += increment;
-                progressCallback(Math.min(simulatedProgress, 95));
-            } else {
-                clearInterval(progressInterval);
-            }
-        }, 100);
+        console.log(`开始处理: ${file.name} (${fileSize} MB)`);
         
         reader.onload = function(e) {
-            clearInterval(progressInterval);
             progressCallback(100);
-            console.log(`上传完成: ${file.name}`);
+            console.log(`处理完成: ${file.name}`);
             resolve(e.target.result);
         };
         
         reader.onerror = function(e) {
-            clearInterval(progressInterval);
-            console.error(`上传失败: ${file.name}`, e);
+            console.error(`处理失败: ${file.name}`, e);
             reject(new Error(`文件 ${file.name} 读取失败`));
         };
         
         reader.onprogress = function(e) {
             if (e.lengthComputable) {
                 const progress = (e.loaded / e.total) * 100;
-                clearInterval(progressInterval);
                 progressCallback(progress);
-                console.log(`上传进度: ${file.name} - ${Math.round(progress)}%`);
-                
-                if (progress < 95) {
-                    simulatedProgress = progress;
-                    const newProgressInterval = setInterval(() => {
-                        if (simulatedProgress < 95) {
-                            simulatedProgress += 0.5;
-                            progressCallback(Math.min(simulatedProgress, 95));
-                        } else {
-                            clearInterval(newProgressInterval);
-                        }
-                    }, 100);
-                }
+                console.log(`处理进度: ${file.name} - ${Math.round(progress)}%`);
             }
         };
         
         // 添加小延迟以确保UI更新
         setTimeout(() => {
-            reader.readAsDataURL(file);
+            try {
+                reader.readAsDataURL(file);
+            } catch (error) {
+                reject(new Error(`无法读取文件 ${file.name}: ${error.message}`));
+            }
         }, 50);
     });
 }
@@ -602,9 +616,9 @@ function handleMarkerImageChange(e) {
     const file = e.target.files[0];
     if (!file) return;
     
-    // 检查文件类型
+    // 验证文件类型
     if (!file.type.startsWith('image/')) {
-        alert('请选择图像文件作为标记图像');
+        alert('请选择图片文件作为标记图像');
         e.target.value = '';
         return;
     }
@@ -624,48 +638,48 @@ function handleContentFileChange(e) {
     
     const type = contentType.value;
     
-    // 检查文件类型
+    // 验证文件类型
     if (type === 'image' && !file.type.startsWith('image/')) {
-        alert('请选择图像文件');
+        alert('请选择图片文件作为内容');
         e.target.value = '';
         return;
     } else if (type === 'video' && !file.type.startsWith('video/')) {
-        alert('请选择视频文件');
+        alert('请选择视频文件作为内容');
         e.target.value = '';
         return;
-    } else if (type === '3d' && !file.name.endsWith('.glb') && !file.name.endsWith('.gltf')) {
-        alert('请选择 .glb 或 .gltf 格式的3D模型文件');
+    } else if (type === '3d' && !file.name.endsWith('.gltf') && !file.name.endsWith('.glb')) {
+        alert('请选择GLTF或GLB文件作为3D模型内容');
         e.target.value = '';
         return;
     }
     
     // 显示预览
-    if (type === 'image') {
-        const reader = new FileReader();
-        reader.onload = function(e) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        if (type === 'image') {
             contentPreview.innerHTML = `<img src="${e.target.result}" alt="内容预览" class="preview-image">`;
-        };
-        reader.readAsDataURL(file);
-    } else if (type === 'video') {
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        } else if (type === 'video') {
             contentPreview.innerHTML = `<video src="${e.target.result}" controls style="max-width: 100%; max-height: 200px;"></video>`;
-        };
-        reader.readAsDataURL(file);
-    } else if (type === '3d') {
-        contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${file.name})</div>`;
-    }
+        } else if (type === '3d') {
+            contentPreview.innerHTML = `<div style="text-align: center; color: var(--text-light);">3D 模型 (${file.name})</div>`;
+        }
+    };
+    reader.readAsDataURL(file);
 }
 
 // 删除内容
 function deleteContent(id) {
-    if (!confirm('确定要删除此内容吗？此操作无法撤销。')) return;
+    const content = contents.find(item => item.id === id);
+    if (!content) return;
     
-    const index = contents.findIndex(item => item.id === id);
-    if (index !== -1) {
-        contents.splice(index, 1);
-        saveContents();
-        renderContentList();
+    if (confirm(`确定要删除 "${content.name}" 吗？此操作不可撤销。`)) {
+        const index = contents.findIndex(item => item.id === id);
+        if (index !== -1) {
+            contents.splice(index, 1);
+            saveContents();
+            renderContentList();
+            console.log(`已删除内容: ${content.name}`);
+        }
     }
 }
 
@@ -674,82 +688,93 @@ function showQRCode(id) {
     const content = contents.find(item => item.id === id);
     if (!content) return;
     
-    // 生成AR查看器URL
-    const baseUrl = window.location.href.includes('index.html') 
-        ? window.location.href.replace('index.html', '') 
-        : window.location.href.endsWith('/') 
-            ? window.location.href 
-            : window.location.href + '/';
-    
-    const url = `${baseUrl}ar-viewer.html?id=${id}`;
-    
-    // 清空二维码容器
-    qrCode.innerHTML = '';
+    // 构建AR URL
+    const baseUrl = window.location.origin + window.location.pathname;
+    const arViewerUrl = baseUrl.replace(/\/[^\/]*$/, '/ar-viewer.html');
+    const url = `${arViewerUrl}?id=${content.id}`;
     
     // 显示URL
     arUrl.textContent = url;
     
+    // 清空并创建新的二维码
+    qrCode.innerHTML = '';
+    
+    // 检查QRCode库是否已加载
+    if (typeof QRCode === 'undefined') {
+        qrCode.innerHTML = '<div style="text-align: center; padding: 20px;">QRCode库加载中，请稍候...</div>';
+        
+        // 加载QRCode库
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js';
+        script.onload = () => {
+            createQRCode(url);
+        };
+        document.head.appendChild(script);
+    } else {
+        createQRCode(url);
+    }
+    
     // 显示模态框
     qrModal.style.display = 'block';
-    
-    // 生成二维码
-    if (typeof QRCode !== 'undefined') {
-        new QRCode(qrCode, {
-            text: url,
-            width: 200,
-            height: 200,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        });
-    } else {
-        // 如果QRCode库尚未加载，等待加载完成后再生成
-        const checkQRCode = setInterval(() => {
-            if (typeof QRCode !== 'undefined') {
-                clearInterval(checkQRCode);
-                new QRCode(qrCode, {
-                    text: url,
-                    width: 200,
-                    height: 200,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            }
-        }, 200);
-        
-        // 5秒后如果仍未加载，显示错误信息
-        setTimeout(() => {
-            if (typeof QRCode === 'undefined') {
-                clearInterval(checkQRCode);
-                qrCode.innerHTML = `
-                    <div style="text-align: center; padding: 20px;">
-                        <p>二维码生成失败，请手动复制链接</p>
-                    </div>
-                `;
-            }
-        }, 5000);
-    }
 }
 
-// 检测浏览器存储限制
-function checkStorageLimit() {
-    let testData = '';
-    const testSize = 1024 * 1024; // 1MB
-    const maxSize = 10 * 1024 * 1024; // 10MB
+// 创建二维码
+function createQRCode(url) {
+    qrCode.innerHTML = '';
     
-    try {
-        // 尝试存储越来越多的数据，直到失败
-        for (let i = 0; i < 10; i++) {
-            testData += new Array(testSize).join('a');
-            localStorage.setItem('storageTest', testData);
+    new QRCode(qrCode, {
+        text: url,
+        width: 256,
+        height: 256,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+    
+    // 添加下载按钮
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'btn btn-primary';
+    downloadBtn.innerHTML = '<i class="ri-download-line"></i> 下载二维码';
+    downloadBtn.style.marginTop = '15px';
+    
+    downloadBtn.addEventListener('click', () => {
+        const canvas = qrCode.querySelector('canvas');
+        if (canvas) {
+            const link = document.createElement('a');
+            link.download = 'ar-qrcode.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         }
-    } catch (e) {
-        console.log('存储限制约为:', testData.length / 1024 / 1024, 'MB');
-    } finally {
-        localStorage.removeItem('storageTest');
-    }
+    });
+    
+    qrCode.appendChild(downloadBtn);
 }
 
-// 初始化时检查存储限制
-// checkStorageLimit();
+// 检查浏览器兼容性
+function checkBrowserCompatibility() {
+    const isWebARSupported = navigator.xr && navigator.xr.isSessionSupported;
+    const isWebGLSupported = (() => {
+        try {
+            const canvas = document.createElement('canvas');
+            return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+        } catch (e) {
+            return false;
+        }
+    })();
+    
+    if (!isWebGLSupported) {
+        console.warn('WebGL 不受支持，AR体验可能受限');
+    }
+    
+    if (!isWebARSupported) {
+        console.warn('WebXR 不受支持，AR体验可能受限');
+    }
+    
+    return {
+        webgl: isWebGLSupported,
+        webxr: isWebARSupported
+    };
+}
+
+// 初始化应用
+checkBrowserCompatibility();
