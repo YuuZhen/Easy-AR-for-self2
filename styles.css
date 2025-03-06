@@ -425,17 +425,25 @@ footer {
     position: fixed;
     top: 20px;
     right: 20px;
-    min-width: 280px;
+    min-width: 300px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 15px;
+    z-index: 2000;
+    transform: translateX(120%);
+    transition: transform 0.3s ease-out;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    z-index: 2000;
+}
+
+.notification-show {
+    transform: translateX(0);
+}
+
+.notification-hiding {
     transform: translateX(120%);
-    transition: transform 0.3s ease;
 }
 
 .notification-content {
@@ -448,42 +456,39 @@ footer {
     font-size: 20px;
 }
 
-.notification.success {
+.notification-success {
     border-left: 4px solid var(--secondary-color);
 }
 
-.notification.success i {
+.notification-success i {
     color: var(--secondary-color);
 }
 
-.notification.error {
+.notification-error {
     border-left: 4px solid var(--danger-color);
 }
 
-.notification.error i {
+.notification-error i {
     color: var(--danger-color);
 }
 
-.notification.info {
+.notification-info {
     border-left: 4px solid var(--primary-color);
 }
 
-.notification.info i {
+.notification-info i {
     color: var(--primary-color);
 }
 
 .notification-close {
     background: none;
     border: none;
+    font-size: 18px;
     cursor: pointer;
     color: var(--text-light);
-    padding: 5px;
+    padding: 0 5px;
 }
 
-.notification-show {
-    transform: translateX(0);
-}
-
-.notification-hide {
-    transform: translateX(120%);
+.notification-close:hover {
+    color: var(--text-dark);
 }
