@@ -681,9 +681,53 @@ function deleteContent(id) {
             contents.splice(index, 1);
             saveContents();
             renderContentList();
+            showNotification(`已删除内容: ${content.name}`, 'info');
             console.log(`已删除内容: ${content.name}`);
         }
     }
+}
+
+// 显示通知
+function showNotification(message, type = 'info') {
+    // 创建通知元素
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="ri-${type === 'success' ? 'check-line' : type === 'error' ? 'error-warning-line' : 'information-line'}"></i>
+            <span>${message}</span>
+        </div>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(notification);
+    
+    // 添加关闭按钮事件
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => {
+        notification.classList.add('notification-hiding');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    });
+    
+    // 自动关闭
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.classList.add('notification-hiding');
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }
+    }, 3000);
+    
+    // 显示动画
+    setTimeout(() => {
+        notification.classList.add('notification-show');
+    }, 10);
 }
 
 // 显示二维码
